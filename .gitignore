@@ -1,0 +1,33 @@
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+docker/.env
+
+# Dependencies and generated builds
+node_modules/
+**/node_modules/
+vendor/
+**/vendor/
+frontend/dist/
+backend-laravel/public/build/
+
+# Local databases, logs, caches, and uploaded files
+*.sqlite
+*.sqlite3
+*.log
+backend-laravel/storage/app/private/
+backend-laravel/storage/logs/*
+backend-laravel/bootstrap/cache/*.php
+backend-laravel/.phpunit.result.cache
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

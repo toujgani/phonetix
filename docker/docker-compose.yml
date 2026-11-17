@@ -1,0 +1,132 @@
+name: phonetix
+
+services:
+  # Nginx Gateway & Static Reverse Proxy
+  nginx:
+    container_name: phonetix_nginx
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    image: phonetix:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - phonetix_network
+
+  # Laravel API Backend Application
+  backend:
+    build:
+      context: ../backend-laravel
+      dockerfile: ../docker/Dockerfile.backend
+    image: phonetix-backend:latest
+    container_name: phonetix_backend
+    restart: unless-stopped
+    working_dir: /var/www/html
+    environment:
+      APP_NAME: "PHONETIX LMS"
+      APP_ENV: production
+      APP_KEY: ${APP_KEY:?Set APP_KEY in docker/.env}
+      APP_DEBUG: "false"
+      APP_URL: "http://localhost"
+      DB_CONNECTION: pgsql
+      DB_HOST: ${SUPABASE_DB_HOST:-postgres}
+      DB_PORT: ${SUPABASE_DB_PORT:-5432}
+      DB_DATABASE: ${SUPABASE_DB_NAME:-phonetix_db}
+      DB_USERNAME: ${SUPABASE_DB_USER:-phonetix_user}
+      DB_PASSWORD: ${SUPABASE_DB_PASSWORD:-${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in docker/.env}}
+      DB_SSLMODE: ${SUPABASE_DB_SSLMODE:-prefer}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      QUEUE_CONNECTION: redis
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in docker/.env}
+    command: sh -c "php artisan migrate --force && php-fpm -F"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - phonetix_network
+
+  # Queue Worker for Audio Processing & Speech Assessment Jobs
+  queue_worker:
+    build:
+      context: ../backend-laravel
+      dockerfile: ../docker/Dockerfile.backend
+    image: phonetix-backend:latest
+    container_name: phonetix_queue_worker
+    restart: unless-stopped
+    command: php artisan queue:work --tries=1 --timeout=90
+    working_dir: /var/www/html
+    depends_on:
+      - backend
+      - redis
+      - postgres
+    networks:
+      - phonetix_network
+
+  # React Frontend Single Page Application
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    image: phonetix-frontend:latest
+    container_name: phonetix_frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+    environment:
+      - VITE_API_BASE_URL=/api/v1
+    networks:
+      - phonetix_network
+
+  # PostgreSQL 16 Enterprise Relational Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: phonetix_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: phonetix_db
+      POSTGRES_USER: phonetix_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in docker/.env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U phonetix_user -d phonetix_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - phonetix_network
+
+  # Redis 7 Cache, Rate Limiter & Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: phonetix_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in docker/.env}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - phonetix_network
+
+networks:
+  phonetix_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
