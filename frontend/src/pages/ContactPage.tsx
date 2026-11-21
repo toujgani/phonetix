@@ -4,8 +4,10 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { useBrandingStore } from '../store/brandingStore';
 
 export const ContactPage: React.FC = () => {
+  const { branding } = useBrandingStore();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -47,9 +49,12 @@ export const ContactPage: React.FC = () => {
           <Card className="p-6 border-l-4 border-[#2563EB] bg-white shadow-sm">
             <h3 className="text-base font-semibold text-[#172033] mb-4">Institutional Headquarters</h3>
             <p className="text-xs text-[#64748B] leading-relaxed mb-5">
-              Faculty of Foreign Languages &amp; Applied Linguistics<br />
-              Centre for Phonetics &amp; Speech Science Research<br />
-              Academic Avenue, University Campus
+              {branding.address.split(/\r?\n/).map((line, index) => (
+                <React.Fragment key={`${index}-${line}`}>
+                  {index > 0 && <br />}
+                  {line}
+                </React.Fragment>
+              ))}
             </p>
 
             <div className="space-y-3 pt-4 border-t border-[#E5E7EB]">
@@ -59,7 +64,7 @@ export const ContactPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-[10px] text-[#64748B] uppercase tracking-wide font-medium">Email</p>
-                  <p className="text-xs text-[#172033] font-medium">support@phonetix-institution.edu</p>
+                  <p className="text-xs text-[#172033] font-medium">{branding.contactEmail}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -68,7 +73,7 @@ export const ContactPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-[10px] text-[#64748B] uppercase tracking-wide font-medium">Phone</p>
-                  <p className="text-xs text-[#172033] font-medium">+1 (555) 019-4820</p>
+                  <p className="text-xs text-[#172033] font-medium">{branding.contactPhone}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
